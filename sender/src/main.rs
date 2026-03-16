@@ -83,7 +83,10 @@ fn start_ffmpeg(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) -> Child 
             "-crf", "28",
             "-maxrate", bitrate,
             "-bufsize", &bufsize,
-            "-g", &fps_str,
+            "-g", "10",
+            "-keyint_min", "10",
+            "-x264opts", "repeat-headers=1:sliced-threads=0",
+            "-flags", "+global_header",
             "-f", "mpegts",
             &dest,
         ])
