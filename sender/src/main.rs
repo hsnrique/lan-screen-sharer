@@ -6,11 +6,21 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const DEFAULT_FPS: u32 = 30;
-const DEFAULT_BITRATE: &str = "4M";
+const DEFAULT_BITRATE: &str = "5M";
 const PORT: u16 = 8765;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let receiver_ip = args.get(1).cloned().unwrap_or_else(|| {
+        eprintln!("Usage: screen-sender <receiver-ip> [OPTIONS]");
+        eprintln!("Example: screen-sender 192.168.1.100");
+        eprintln!("Options:");
+        eprintln!("  --fps N       Target FPS (default: 30)");
+        eprintln!("  --bitrate N   Video bitrate (default: 5M)");
+        eprintln!("  --port N      UDP port (default: 8765)");
+        std::process::exit(1);
+    });
+
     let fps = parse_arg(&args, "--fps").unwrap_or(DEFAULT_FPS);
     let bitrate = parse_str_arg(&args, "--bitrate").unwrap_or(DEFAULT_BITRATE.into());
     let port = parse_arg(&args, "--port").unwrap_or(PORT);
@@ -26,13 +36,12 @@ fn main() {
     ctrlc::set_handler(move || r.store(false, Ordering::SeqCst))
         .expect("Failed to set Ctrl+C handler");
 
-    print_banner(fps, &bitrate, port);
+    print_banner(&receiver_ip, fps, &bitrate, port);
 
     while running.load(Ordering::SeqCst) {
-        println!("  Waiting for receiver to connect...");
+        println!("  Streaming to {}:{}...", receiver_ip, port);
 
-        let mut child = start_ffmpeg(fps, &bitrate, port);
-
+        let mut child = start_ffmpeg(&receiver_ip, fps, &bitrate, port);
         let status = child.wait();
 
         if running.load(Ordering::SeqCst) {
@@ -44,7 +53,7 @@ fn main() {
                     eprintln!("  FFmpeg error: {}", e);
                 }
                 _ => {
-                    println!("  Receiver disconnected.");
+                    println!("  Stream ended.");
                 }
             }
             println!("  Restarting in 2 seconds...");
@@ -55,13 +64,15 @@ fn main() {
     println!("  Shutting down.");
 }
 
-fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
+fn start_ffmpeg(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) -> Child {
+    let fps_str = fps.to_string();
+    let dest = format!("udp://{}:{}?pkt_size=1316", receiver_ip, port);
+
     Command::new("ffmpeg")
         .args([
             "-f", "avfoundation",
             "-pixel_format", "uyvy422",
-            "-probesize", "5000000",
-            "-framerate", &fps.to_string(),
+            "-framerate", &fps_str,
             "-capture_cursor", "1",
             "-i", "1:none",
             "-c:v", "libx264",
@@ -70,10 +81,10 @@ fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
             "-pix_fmt", "yuv420p",
             "-b:v", bitrate,
             "-maxrate", bitrate,
-            "-bufsize", "1M",
-            "-g", &fps.to_string(),
+            "-bufsize", "512k",
+            "-g", &fps_str,
             "-f", "mpegts",
-            &format!("tcp://0.0.0.0:{}?listen", port),
+            &dest,
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
@@ -81,16 +92,16 @@ fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
         .expect("Failed to start FFmpeg")
 }
 
-fn print_banner(fps: u32, bitrate: &str, port: u16) {
+fn print_banner(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) {
     println!("===========================================");
-    println!("  Screen Sender v2 (H.264)");
+    println!("  Screen Sender v2 (H.264 / UDP)");
     println!("===========================================");
-    println!("  Codec:   H.264 (ultrafast/zerolatency)");
-    println!("  FPS:     {}", fps);
-    println!("  Bitrate: {}", bitrate);
-    println!("  Port:    {}", port);
+    println!("  Codec:    H.264 ultrafast/zerolatency");
+    println!("  FPS:      {}", fps);
+    println!("  Bitrate:  {}", bitrate);
+    println!("  Target:   {}:{}", receiver_ip, port);
     if let Ok(ip) = local_ip() {
-        println!("  Address: {}:{}", ip, port);
+        println!("  Local IP: {}", ip);
     }
     println!("===========================================");
 }

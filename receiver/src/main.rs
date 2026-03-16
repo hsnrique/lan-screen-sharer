@@ -8,18 +8,7 @@ const DEFAULT_PORT: u16 = 8765;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let host = args.get(1).cloned().unwrap_or_else(|| {
-        eprintln!("Usage: screen-receiver <mac-ip> [--port PORT]");
-        eprintln!("Example: screen-receiver 192.168.1.42");
-        std::process::exit(1);
-    });
     let port = parse_arg(&args, "--port").unwrap_or(DEFAULT_PORT);
-
-    let addr = if host.contains(':') {
-        host.clone()
-    } else {
-        format!("{}:{}", host, port)
-    };
 
     if !is_ffplay_installed() {
         eprintln!("ERROR: FFplay not found.");
@@ -34,38 +23,19 @@ fn main() {
         .expect("Failed to set Ctrl+C handler");
 
     println!("===========================================");
-    println!("  Screen Receiver v2 (H.264)");
+    println!("  Screen Receiver v2 (H.264 / UDP)");
     println!("===========================================");
-    println!("  Connecting to: {}", addr);
+    println!("  Listening on UDP port: {}", port);
+    println!("  Waiting for stream...");
     println!("===========================================");
 
-    while running.load(Ordering::SeqCst) {
-        println!("  Starting stream viewer...");
-
-        let mut child = start_ffplay(&addr);
-        let status = child.wait();
-
-        if running.load(Ordering::SeqCst) {
-            match status {
-                Ok(s) if !s.success() => {
-                    eprintln!("  FFplay exited with: {}", s);
-                }
-                Err(e) => {
-                    eprintln!("  FFplay error: {}", e);
-                }
-                _ => {
-                    println!("  Stream ended.");
-                }
-            }
-            println!("  Reconnecting in 3 seconds...");
-            std::thread::sleep(Duration::from_secs(3));
-        }
-    }
+    let mut child = start_ffplay(port);
+    let _ = child.wait();
 
     println!("  Shutting down.");
 }
 
-fn start_ffplay(addr: &str) -> Child {
+fn start_ffplay(port: u16) -> Child {
     Command::new("ffplay")
         .args([
             "-f", "mpegts",
@@ -73,10 +43,10 @@ fn start_ffplay(addr: &str) -> Child {
             "-flags", "low_delay",
             "-framedrop",
             "-analyzeduration", "500000",
-            "-probesize", "1000000",
+            "-probesize", "500000",
             "-sync", "ext",
             "-window_title", "Screen Viewer",
-            &format!("tcp://{}", addr),
+            &format!("udp://0.0.0.0:{}?overrun_nonfatal=1&fifo_size=50000000", port),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())

@@ -1,6 +1,6 @@
 # LAN Screen Sharer
 
-Real-time screen streaming from Mac to Windows over LAN using **H.264** via FFmpeg.
+Real-time screen streaming from Mac to Windows over LAN using **H.264** via FFmpeg + UDP.
 
 ## Requirements
 
@@ -9,40 +9,38 @@ Real-time screen streaming from Mac to Windows over LAN using **H.264** via FFmp
 
 ## Quick Start
 
-**Mac (send your screen):**
+**1. Windows — start receiver first (it just listens):**
+```
+receive.bat
+```
+
+**2. Mac — start sender, pointing to your Windows IP:**
 ```bash
 chmod +x send.sh
-./send.sh
+./send.sh <windows-ip>
 ```
 
-**Windows (receive the stream):**
-```
-receive.bat 192.168.100.99
-```
-
-That's it. The scripts auto-build and run.
+Example: `./send.sh 192.168.100.50`
 
 ## Options
 
-Both scripts forward arguments to the underlying app:
-
 ```bash
 # Mac: custom FPS and bitrate
-./send.sh --fps 60 --bitrate 6M
+./send.sh 192.168.100.50 --fps 60 --bitrate 6M
 
 # Windows: custom port
-receive.bat 192.168.1.42 --port 9000
+receive.bat --port 9000
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--fps` | 30 | Target framerate (sender) |
-| `--bitrate` | 4M | Video bitrate (sender) |
-| `--port` | 8765 | TCP port (both) |
+| `--bitrate` | 5M | Video bitrate (sender) |
+| `--port` | 8765 | UDP port (both) |
 
 ## How It Works
 
-1. Sender captures the Mac screen via FFmpeg `avfoundation`
-2. Encodes with H.264 (`ultrafast` preset, `zerolatency` tune)
-3. Streams over TCP as MPEG-TS
-4. Receiver displays via FFplay with low-latency flags
+1. Receiver opens a UDP port and waits for data
+2. Sender captures Mac screen via FFmpeg `avfoundation`
+3. Encodes with H.264 (`ultrafast/zerolatency`) and pushes via UDP
+4. Receiver displays with FFplay (low-latency settings)
