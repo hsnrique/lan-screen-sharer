@@ -16,7 +16,11 @@ fn main() {
         std::process::exit(1);
     });
 
-    let addr = format!("{}:{}", host, PORT);
+    let addr = if host.contains(':') {
+        host.clone()
+    } else {
+        format!("{}:{}", host, PORT)
+    };
     println!("===========================================");
     println!("  Screen Receiver");
     println!("===========================================");
