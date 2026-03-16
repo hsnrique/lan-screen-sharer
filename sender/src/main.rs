@@ -73,9 +73,10 @@ fn start_ffmpeg(receiver_ip: &str, fps: u32, _bitrate: &str, port: u16) -> Child
          -f avfoundation -framerate {} -capture_cursor 1 -i 1:none \
          -vf scale=1920:-2 \
          -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
-         -crf 20 -g 10 -keyint_min 10 \
+         -threads 1 -crf 20 -g 10 -keyint_min 10 \
          -x264opts repeat-headers=1:sliced-threads=0 \
          -bsf:v dump_extra \
+         -fflags nobuffer -flush_packets 1 -muxdelay 0 -muxpreload 0 \
          -f mpegts -mpegts_flags resend_headers \
          '{}' 2>&1 | grep -v 'NSKVONotifying\\|AVFoundation\\|avfoundation'",
         fps_str, dest
