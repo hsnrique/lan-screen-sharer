@@ -59,6 +59,8 @@ fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
     Command::new("ffmpeg")
         .args([
             "-f", "avfoundation",
+            "-pixel_format", "uyvy422",
+            "-probesize", "5000000",
             "-framerate", &fps.to_string(),
             "-capture_cursor", "1",
             "-i", "1:none",
