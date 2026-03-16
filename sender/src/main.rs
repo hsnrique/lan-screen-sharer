@@ -74,7 +74,7 @@ fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
             &format!("tcp://0.0.0.0:{}?listen", port),
         ])
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()
         .expect("Failed to start FFmpeg")
 }
