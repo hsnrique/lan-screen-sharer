@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 scrap = "0.5"
-image = { version = "0.25", default-features = false, features = ["jpeg"] }
+turbojpeg = "1"
 local-ip-address = "0.6"
 ctrlc = "3.4"
 

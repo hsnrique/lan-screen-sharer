@@ -1,9 +1,9 @@
-use image::ImageReader;
 use minifb::{Key, Window, WindowOptions};
 use std::env;
-use std::io::{Cursor, Read};
+use std::io::Read;
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
+use turbojpeg::{Decompressor, PixelFormat};
 
 const PORT: u16 = 8765;
 const RECONNECT_DELAY: Duration = Duration::from_secs(3);
@@ -52,9 +52,13 @@ fn run_stream(mut stream: TcpStream) -> Result<(), String> {
     println!("  Resolution: {}x{}", width, height);
 
     let mut window = create_window(width, height)?;
+    let mut decompressor = Decompressor::new().map_err(|e| e.to_string())?;
     let mut len_buf = [0u8; 4];
+    let mut rgb_buf = vec![0u8; width * height * 3];
+    let mut argb_buf = vec![0u32; width * height];
     let mut frame_count: u64 = 0;
     let mut fps_timer = Instant::now();
+
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if read_exact_safe(&mut stream, &mut len_buf).is_err() {
             return Err("Connection lost".into());
@@ -70,10 +74,15 @@ fn run_stream(mut stream: TcpStream) -> Result<(), String> {
             return Err("Connection lost".into());
         }
 
-        let buffer = decode_jpeg_to_argb(&jpeg_data, width, height)?;
+        decode_jpeg_to_argb(
+            &mut decompressor,
+            &jpeg_data,
+            &mut rgb_buf,
+            &mut argb_buf,
+        )?;
 
         window
-            .update_with_buffer(&buffer, width, height)
+            .update_with_buffer(&argb_buf, width, height)
             .map_err(|e| e.to_string())?;
 
         frame_count += 1;
@@ -81,7 +90,7 @@ fn run_stream(mut stream: TcpStream) -> Result<(), String> {
         if elapsed >= Duration::from_secs(1) {
             let current_fps = frame_count as f64 / elapsed.as_secs_f64();
             window.set_title(&format!(
-                "Mac Screen Viewer  |  {:.0} FPS  |  {}x{}",
+                "Screen Viewer  |  {:.0} FPS  |  {}x{}",
                 current_fps, width, height
             ));
             frame_count = 0;
@@ -121,7 +130,7 @@ fn create_window(width: usize, height: usize) -> Result<Window, String> {
     let (win_w, win_h) = scale_to_screen(width, height);
 
     Window::new(
-        "Mac Screen Viewer  |  Connecting...",
+        "Screen Viewer  |  Connecting...",
         win_w,
         win_h,
         WindowOptions {
@@ -149,28 +158,41 @@ fn scale_to_screen(width: usize, height: usize) -> (usize, usize) {
 }
 
 fn decode_jpeg_to_argb(
+    decompressor: &mut Decompressor,
     jpeg_data: &[u8],
-    width: usize,
-    height: usize,
-) -> Result<Vec<u32>, String> {
-    let reader = ImageReader::new(Cursor::new(jpeg_data))
-        .with_guessed_format()
+    rgb_buf: &mut Vec<u8>,
+    argb_buf: &mut [u32],
+) -> Result<(), String> {
+    let header = decompressor
+        .read_header(jpeg_data)
         .map_err(|e| e.to_string())?;
 
-    let img = reader.decode().map_err(|e| e.to_string())?;
-    let rgb = img.to_rgb8();
-
-    let mut buffer = vec![0u32; width * height];
-    for (i, pixel) in rgb.pixels().enumerate() {
-        if i >= buffer.len() {
-            break;
-        }
-        buffer[i] = ((pixel[0] as u32) << 16)
-            | ((pixel[1] as u32) << 8)
-            | (pixel[2] as u32);
+    let pixel_count = header.width * header.height;
+    let needed = pixel_count * 3;
+    if rgb_buf.len() < needed {
+        rgb_buf.resize(needed, 0);
     }
 
-    Ok(buffer)
+    let image = turbojpeg::Image {
+        pixels: rgb_buf.as_mut_slice(),
+        width: header.width,
+        pitch: header.width * 3,
+        height: header.height,
+        format: PixelFormat::RGB,
+    };
+
+    decompressor
+        .decompress(jpeg_data, image)
+        .map_err(|e| e.to_string())?;
+
+    for i in 0..pixel_count.min(argb_buf.len()) {
+        let si = i * 3;
+        argb_buf[i] = ((rgb_buf[si] as u32) << 16)
+            | ((rgb_buf[si + 1] as u32) << 8)
+            | (rgb_buf[si + 2] as u32);
+    }
+
+    Ok(())
 }
 
 fn read_exact_safe(stream: &mut TcpStream, buf: &mut [u8]) -> Result<(), ()> {

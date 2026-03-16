@@ -4,7 +4,7 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-image = { version = "0.25", default-features = false, features = ["jpeg"] }
+turbojpeg = "1"
 minifb = "0.27"
 
 [profile.release]
