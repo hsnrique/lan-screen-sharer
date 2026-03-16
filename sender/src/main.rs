@@ -116,7 +116,8 @@ fn handle_client(
 
         match capturer.frame() {
             Ok(frame) => {
-                bgra_to_rgb(&frame, &mut rgb_buf, capture_w * capture_h);
+                let stride = frame.len() / capture_h;
+                bgra_to_rgb(&frame, &mut rgb_buf, capture_w, capture_h, stride);
 
                 let (encode_buf, encode_w, encode_h) = if needs_scale {
                     scale_rgb(&rgb_buf, capture_w, capture_h, &mut scaled_buf, send_w, send_h);
@@ -182,13 +183,16 @@ fn scale_rgb(
     }
 }
 
-fn bgra_to_rgb(bgra: &[u8], rgb: &mut [u8], pixel_count: usize) {
-    for i in 0..pixel_count {
-        let src = i * 4;
-        let dst = i * 3;
-        rgb[dst] = bgra[src + 2];
-        rgb[dst + 1] = bgra[src + 1];
-        rgb[dst + 2] = bgra[src];
+fn bgra_to_rgb(bgra: &[u8], rgb: &mut [u8], width: usize, height: usize, stride: usize) {
+    for y in 0..height {
+        let row_start = y * stride;
+        for x in 0..width {
+            let src = row_start + x * 4;
+            let dst = (y * width + x) * 3;
+            rgb[dst] = bgra[src + 2];
+            rgb[dst + 1] = bgra[src + 1];
+            rgb[dst + 2] = bgra[src];
+        }
     }
 }
 
