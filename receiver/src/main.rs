@@ -35,20 +35,24 @@ fn main() {
 }
 
 fn start_ffplay(port: u16) -> Child {
+    let udp_url = format!(
+        "udp://0.0.0.0:{}?overrun_nonfatal=1&fifo_size=50000000&buffer_size=4194304",
+        port
+    );
+
     Command::new("ffplay")
         .args([
             "-loglevel", "warning",
             "-f", "mpegts",
             "-fflags", "nobuffer+discardcorrupt",
             "-flags", "low_delay",
-            "-avioflags", "direct",
             "-framedrop",
-            "-analyzeduration", "0",
-            "-probesize", "32768",
+            "-analyzeduration", "1000000",
+            "-probesize", "1000000",
             "-sync", "ext",
             "-vf", "setpts=0",
             "-window_title", "Screen Viewer",
-            &format!("udp://0.0.0.0:{}?overrun_nonfatal=1&fifo_size=50000000", port),
+            &udp_url,
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
