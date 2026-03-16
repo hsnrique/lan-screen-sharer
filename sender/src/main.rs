@@ -58,10 +58,14 @@ fn main() {
 fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
     Command::new("ffmpeg")
         .args([
+            "-probesize", "32",
+            "-analyzeduration", "0",
             "-f", "avfoundation",
+            "-pixel_format", "nv12",
             "-framerate", &fps.to_string(),
             "-capture_cursor", "1",
             "-i", "1:none",
+            "-vf", "format=yuv420p",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
@@ -69,7 +73,6 @@ fn start_ffmpeg(fps: u32, bitrate: &str, port: u16) -> Child {
             "-maxrate", bitrate,
             "-bufsize", "1M",
             "-g", &fps.to_string(),
-            "-pix_fmt", "yuv420p",
             "-f", "mpegts",
             &format!("tcp://0.0.0.0:{}?listen", port),
         ])
