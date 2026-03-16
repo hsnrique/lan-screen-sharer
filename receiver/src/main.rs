@@ -37,6 +37,7 @@ fn main() {
 fn start_ffplay(port: u16) -> Child {
     Command::new("ffplay")
         .args([
+            "-loglevel", "warning",
             "-f", "mpegts",
             "-fflags", "nobuffer+discardcorrupt",
             "-flags", "low_delay",

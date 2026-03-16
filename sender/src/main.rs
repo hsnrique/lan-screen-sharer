@@ -64,48 +64,31 @@ fn main() {
     println!("  Shutting down.");
 }
 
-fn start_ffmpeg(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) -> Child {
+fn start_ffmpeg(receiver_ip: &str, fps: u32, _bitrate: &str, port: u16) -> Child {
     let fps_str = fps.to_string();
-    let bufsize = format!("{}k", parse_bitrate_kb(bitrate) * 2);
     let dest = format!("udp://{}:{}?pkt_size=1316", receiver_ip, port);
 
-    Command::new("ffmpeg")
-        .args([
-            "-f", "avfoundation",
-            "-framerate", &fps_str,
-            "-capture_cursor", "1",
-            "-i", "1:none",
-            "-vf", "scale=1920:-2",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-tune", "zerolatency",
-            "-pix_fmt", "yuv420p",
-            "-crf", "28",
-            "-maxrate", bitrate,
-            "-bufsize", &bufsize,
-            "-g", "10",
-            "-keyint_min", "10",
-            "-x264opts", "repeat-headers=1:sliced-threads=0",
-            "-flags", "+global_header",
-            "-f", "mpegts",
-            &dest,
-        ])
-        .stdout(Stdio::null())
+    let cmd = format!(
+        "ffmpeg -loglevel error \
+         -f avfoundation -framerate {} -capture_cursor 1 -i 1:none \
+         -vf scale=1920:-2 \
+         -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
+         -crf 20 -g 10 -keyint_min 10 \
+         -x264opts repeat-headers=1:sliced-threads=0 \
+         -bsf:v dump_extra \
+         -f mpegts -mpegts_flags resend_headers \
+         '{}' 2>&1 | grep -v 'NSKVONotifying\\|AVFoundation\\|avfoundation'",
+        fps_str, dest
+    );
+
+    Command::new("sh")
+        .args(["-c", &cmd])
+        .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn()
         .expect("Failed to start FFmpeg")
 }
 
-fn parse_bitrate_kb(bitrate: &str) -> u32 {
-    let s = bitrate.to_uppercase();
-    if let Some(n) = s.strip_suffix('M') {
-        n.parse::<u32>().unwrap_or(5) * 1000
-    } else if let Some(n) = s.strip_suffix('K') {
-        n.parse::<u32>().unwrap_or(5000)
-    } else {
-        s.parse::<u32>().unwrap_or(5000)
-    }
-}
 
 fn print_banner(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) {
     println!("===========================================");
