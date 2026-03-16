@@ -1,48 +1,48 @@
 # LAN Screen Sharer
 
-Stream your Mac screen to a Windows PC over your local network with minimal latency. Two lightweight Rust binaries — no internet, no cloud, no middleware.
+Real-time screen streaming from Mac to Windows over LAN using **H.264** via FFmpeg.
+
+## Requirements
+
+- **Mac (Sender)**: FFmpeg (`brew install ffmpeg`) + Rust
+- **Windows (Receiver)**: FFmpeg (`winget install FFmpeg`) + Rust
 
 ## Quick Start
 
-### Mac (Sender)
+**Mac (send your screen):**
+```bash
+chmod +x send.sh
+./send.sh
+```
+
+**Windows (receive the stream):**
+```
+receive.bat 192.168.100.99
+```
+
+That's it. The scripts auto-build and run.
+
+## Options
+
+Both scripts forward arguments to the underlying app:
 
 ```bash
-cd sender
-cargo build --release
-./target/release/screen-sender
+# Mac: custom FPS and bitrate
+./send.sh --fps 60 --bitrate 6M
+
+# Windows: custom port
+receive.bat 192.168.1.42 --port 9000
 ```
 
-The sender will display your local IP. Use that on the Windows side.
-
-**Options:**
-```
---fps 30        # Frame rate (default: 30)
---quality 92    # JPEG quality 1-100 (default: 92)
-```
-
-> On first run, macOS will ask for **Screen Recording** permission. Grant it in System Settings > Privacy & Security.
-
-### Windows (Receiver)
-
-```bash
-cd receiver
-cargo build --release
-.\target\release\screen-receiver.exe 192.168.x.x
-```
-
-Replace `192.168.x.x` with the IP shown by the sender.
-
-**Controls:**
-- `Escape` — close the viewer
-- Window is resizable — image scales to fit
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fps` | 30 | Target framerate (sender) |
+| `--bitrate` | 4M | Video bitrate (sender) |
+| `--port` | 8765 | TCP port (both) |
 
 ## How It Works
 
-```
-Mac (scrap) → JPEG encode → TCP → JPEG decode → Window (minifb)
-```
-
-- Direct TCP connection on port `8765`
-- No encryption, no buffering, no protocol overhead
-- `TCP_NODELAY` enabled for lowest latency
-- Auto-reconnects if the sender drops
+1. Sender captures the Mac screen via FFmpeg `avfoundation`
+2. Encodes with H.264 (`ultrafast` preset, `zerolatency` tune)
+3. Streams over TCP as MPEG-TS
+4. Receiver displays via FFplay with low-latency flags

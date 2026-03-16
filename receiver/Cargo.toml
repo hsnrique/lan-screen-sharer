@@ -1,11 +1,10 @@
 [package]
 name = "screen-receiver"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2021"
 
 [dependencies]
-turbojpeg = "1"
-minifb = "0.27"
+ctrlc = "3.4"
 
 [profile.release]
 opt-level = 3
