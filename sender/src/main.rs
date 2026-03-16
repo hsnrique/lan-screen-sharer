@@ -110,7 +110,7 @@ fn handle_client(
                 let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buf, quality);
 
                 if encoder
-                    .encode(&rgb_buf, width as u32, height as u32, ColorType::Rgb8)
+                    .encode(&rgb_buf, width as u32, height as u32, ColorType::Rgb8.into())
                     .is_err()
                 {
                     continue;
