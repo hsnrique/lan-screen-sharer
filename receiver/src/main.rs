@@ -68,17 +68,18 @@ fn main() {
 fn start_ffplay(addr: &str) -> Child {
     Command::new("ffplay")
         .args([
-            "-fflags", "nobuffer",
+            "-f", "mpegts",
+            "-fflags", "nobuffer+discardcorrupt",
             "-flags", "low_delay",
             "-framedrop",
-            "-analyzeduration", "0",
-            "-probesize", "32",
+            "-analyzeduration", "500000",
+            "-probesize", "1000000",
             "-sync", "ext",
             "-window_title", "Screen Viewer",
             &format!("tcp://{}", addr),
         ])
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()
         .expect("Failed to start FFplay")
 }
