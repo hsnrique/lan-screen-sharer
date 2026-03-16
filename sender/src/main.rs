@@ -66,22 +66,23 @@ fn main() {
 
 fn start_ffmpeg(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) -> Child {
     let fps_str = fps.to_string();
+    let bufsize = format!("{}k", parse_bitrate_kb(bitrate) * 2);
     let dest = format!("udp://{}:{}?pkt_size=1316", receiver_ip, port);
 
     Command::new("ffmpeg")
         .args([
             "-f", "avfoundation",
-            "-pixel_format", "uyvy422",
             "-framerate", &fps_str,
             "-capture_cursor", "1",
             "-i", "1:none",
+            "-vf", "scale=1920:-2",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-pix_fmt", "yuv420p",
-            "-b:v", bitrate,
+            "-crf", "28",
             "-maxrate", bitrate,
-            "-bufsize", "512k",
+            "-bufsize", &bufsize,
             "-g", &fps_str,
             "-f", "mpegts",
             &dest,
@@ -90,6 +91,17 @@ fn start_ffmpeg(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) -> Child 
         .stderr(Stdio::inherit())
         .spawn()
         .expect("Failed to start FFmpeg")
+}
+
+fn parse_bitrate_kb(bitrate: &str) -> u32 {
+    let s = bitrate.to_uppercase();
+    if let Some(n) = s.strip_suffix('M') {
+        n.parse::<u32>().unwrap_or(5) * 1000
+    } else if let Some(n) = s.strip_suffix('K') {
+        n.parse::<u32>().unwrap_or(5000)
+    } else {
+        s.parse::<u32>().unwrap_or(5000)
+    }
 }
 
 fn print_banner(receiver_ip: &str, fps: u32, bitrate: &str, port: u16) {
