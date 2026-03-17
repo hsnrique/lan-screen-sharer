@@ -44,3 +44,12 @@ receive.bat --port 9000
 2. Sender captures Mac screen via FFmpeg `avfoundation`
 3. Encodes with H.264 (`ultrafast/zerolatency`) and pushes via UDP
 4. Receiver displays with FFplay (low-latency settings)
+
+## Support
+
+If you find this project useful, consider supporting the project:
+
+| | Link |
+|---|---|
+| ☕ **Buy Me a Coffee** (US/EU) | [buymeacoffee.com/hsnrique](https://buymeacoffee.com/hsnrique) |
+| 💜 **Pix** (BR) | [livepix.gg/hsnrique](https://livepix.gg/hsnrique) |
